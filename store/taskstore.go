@@ -13,7 +13,7 @@ var incompleteTasksBucket = []byte("incompleteTasks")
 var completedTasksBucket = []byte("completedTasks")
 
 type Task struct {
-	ID             uint64
+	id             uint64
 	Description    string
 	CompletionTime int64
 }
@@ -42,7 +42,6 @@ func (ts *TaskStore) AddTask(t *Task) error {
 		}
 
 		id, _ := b.NextSequence()
-		t.ID = id
 		buf, err := json.Marshal(t)
 		if err != nil {
 			return err
@@ -68,6 +67,7 @@ func (ts *TaskStore) GetIncompleteTasks() ([]*Task, error) {
 			if err != nil {
 				return err
 			}
+			t.id = btoi(k)
 			incompleteTasks = append(incompleteTasks, t)
 			return nil
 		})
@@ -104,6 +104,7 @@ func (ts *TaskStore) GetCompletedTasks(since time.Time) ([]*Task, error) {
 				return err
 			}
 			if t.CompletionTime >= since.Unix() {
+				t.id = btoi(k)
 				completedTasks = append(completedTasks, t)
 			}
 			return nil
@@ -149,7 +150,7 @@ func (ts *TaskStore) CompleteTasks(taskNums []int) ([]*Task, error) {
 		now := time.Now()
 		for i := 0; i < len(taskNums); i++ {
 			t := incompleteTasks[taskNums[i]-1]
-			bIncomplete.Delete(itob(t.ID))
+			bIncomplete.Delete(itob(t.id))
 
 			t.CompletionTime = now.Unix()
 			buf, err := json.Marshal(t)
@@ -157,7 +158,7 @@ func (ts *TaskStore) CompleteTasks(taskNums []int) ([]*Task, error) {
 				return err
 			}
 
-			err = bCompleted.Put(itob(t.ID), buf)
+			err = bCompleted.Put(itob(t.id), buf)
 			if err != nil {
 				return err
 			}
@@ -192,7 +193,7 @@ func (ts *TaskStore) RemoveTasks(taskNums []int) ([]*Task, error) {
 
 		for i := 0; i < len(taskNums); i++ {
 			t := incompleteTasks[taskNums[i]-1]
-			bIncomplete.Delete(itob(t.ID))
+			bIncomplete.Delete(itob(t.id))
 			removedTasks = append(removedTasks, t)
 		}
 		return nil
@@ -212,6 +213,6 @@ func itob(v uint64) []byte {
 	return b
 }
 
-func btoi(b []byte) int {
-	return int(binary.BigEndian.Uint64(b))
+func btoi(b []byte) uint64 {
+	return binary.BigEndian.Uint64(b)
 }
