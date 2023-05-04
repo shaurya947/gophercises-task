@@ -1,0 +1,9 @@
+syntax = "proto3";
+package tutorial;
+
+option go_package = "github.com/shaurya947/gophercises-task/store/internal";
+
+message Task {
+	string description = 1;
+	int64 completionTime = 2;
+}

@@ -2,7 +2,6 @@ package store
 
 import (
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -11,12 +10,6 @@ import (
 
 var incompleteTasksBucket = []byte("incompleteTasks")
 var completedTasksBucket = []byte("completedTasks")
-
-type Task struct {
-	id             uint64
-	Description    string
-	CompletionTime int64
-}
 
 type TaskStore struct {
 	db *bolt.DB
@@ -42,7 +35,7 @@ func (ts *TaskStore) AddTask(t *Task) error {
 		}
 
 		id, _ := b.NextSequence()
-		buf, err := json.Marshal(t)
+		buf, err := t.Marshal()
 		if err != nil {
 			return err
 		}
@@ -63,7 +56,7 @@ func (ts *TaskStore) GetIncompleteTasks() ([]*Task, error) {
 
 		err := b.ForEach(func(k, v []byte) error {
 			t := &Task{}
-			err := json.Unmarshal(v, t)
+			err := t.Unmarshal(v)
 			if err != nil {
 				return err
 			}
@@ -99,7 +92,7 @@ func (ts *TaskStore) GetCompletedTasks(since time.Time) ([]*Task, error) {
 
 		err := b.ForEach(func(k, v []byte) error {
 			t := &Task{}
-			err := json.Unmarshal(v, t)
+			err := t.Unmarshal(v)
 			if err != nil {
 				return err
 			}
@@ -149,11 +142,15 @@ func (ts *TaskStore) CompleteTasks(taskNums []int) ([]*Task, error) {
 
 		now := time.Now()
 		for i := 0; i < len(taskNums); i++ {
+			if taskNums[i]-1 >= len(incompleteTasks) {
+				return fmt.Errorf("Invalid task number %d",
+					taskNums[i])
+			}
 			t := incompleteTasks[taskNums[i]-1]
 			bIncomplete.Delete(itob(t.id))
 
 			t.CompletionTime = now.Unix()
-			buf, err := json.Marshal(t)
+			buf, err := t.Marshal()
 			if err != nil {
 				return err
 			}
