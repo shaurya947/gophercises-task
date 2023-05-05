@@ -13,6 +13,11 @@ var completedTasksBucket = []byte("completedTasks")
 
 type TaskStore struct {
 	db *bolt.DB
+
+	// Used for getting current time when marking as task as completed.
+	// Making this a non-exported struct variable allows us to use different
+	// values in tests as desired.
+	nowFunc func() time.Time
 }
 
 func NewTaskStore(filename string) (*TaskStore, error) {
@@ -20,7 +25,7 @@ func NewTaskStore(filename string) (*TaskStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &TaskStore{db}, nil
+	return &TaskStore{db: db, nowFunc: time.Now}, nil
 }
 
 func (ts *TaskStore) Close() {
@@ -86,8 +91,7 @@ func (ts *TaskStore) GetCompletedTasks(since time.Time) ([]*Task, error) {
 	err := ts.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(completedTasksBucket)
 		if b == nil {
-			return fmt.Errorf("Bucket %s does not exist",
-				completedTasksBucket)
+			return nil
 		}
 
 		err := b.ForEach(func(k, v []byte) error {
@@ -135,12 +139,12 @@ func (ts *TaskStore) CompleteTasks(taskNums []int) ([]*Task, error) {
 		}
 
 		bCompleted, err := tx.CreateBucketIfNotExists(
-			incompleteTasksBucket)
+			completedTasksBucket)
 		if err != nil {
 			return err
 		}
 
-		now := time.Now()
+		now := ts.nowFunc()
 		for i := 0; i < len(taskNums); i++ {
 			if taskNums[i]-1 >= len(incompleteTasks) {
 				return fmt.Errorf("Invalid task number %d",
@@ -150,12 +154,13 @@ func (ts *TaskStore) CompleteTasks(taskNums []int) ([]*Task, error) {
 			bIncomplete.Delete(itob(t.id))
 
 			t.CompletionTime = now.Unix()
+			id, _ := bCompleted.NextSequence()
 			buf, err := t.Marshal()
 			if err != nil {
 				return err
 			}
 
-			err = bCompleted.Put(itob(t.id), buf)
+			err = bCompleted.Put(itob(id), buf)
 			if err != nil {
 				return err
 			}
@@ -189,6 +194,10 @@ func (ts *TaskStore) RemoveTasks(taskNums []int) ([]*Task, error) {
 		}
 
 		for i := 0; i < len(taskNums); i++ {
+			if taskNums[i]-1 >= len(incompleteTasks) {
+				return fmt.Errorf("Invalid task number %d",
+					taskNums[i])
+			}
 			t := incompleteTasks[taskNums[i]-1]
 			bIncomplete.Delete(itob(t.id))
 			removedTasks = append(removedTasks, t)
