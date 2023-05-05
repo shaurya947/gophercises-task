@@ -14,15 +14,36 @@ import (
 var (
 	cmdAdd = &cli.Command{
 		Name:  "add",
-		Usage: "Add a new task to your TODO list",
+		Usage: "Add tasks to your TODO list",
+		UsageText: "Enclose each task in quotes, such as\n\n" +
+			"task add \"do dishes\" \"wash clothes\" ...",
+		Action: addTasks,
 	}
-	cmdDo = &cli.Command{
+	cmdComplete = &cli.Command{
 		Name:  "do",
-		Usage: "Mark a task on your TODO list as complete",
+		Usage: "Mark tasks on your TODO list as complete",
+		UsageText: "For each task that you'd like to mark as complete" +
+			", pass the task number as displayed by the \"list\" " +
+			"command. For example\n\ntasks do 1 6 15\n\nwill mark" +
+			" as complete the 1st, 6th and 15th tasks displayed" +
+			" by the \"list\" command.",
 	}
-	cmdList = &cli.Command{
-		Name:  "list",
-		Usage: "List all of your incomplete tasks",
+	cmdListIncomplete = &cli.Command{
+		Name:   "list",
+		Usage:  "List all of your incomplete tasks",
+		Action: listIncompleteTasks,
+	}
+	cmdListCompleted = &cli.Command{
+		Name:  "completed",
+		Usage: "List all of your completed tasks since 24h ago",
+	}
+	cmdRemove = &cli.Command{
+		Name:  "rm",
+		Usage: "Delete incomplete tasks from your TODO list",
+		UsageText: "For each task that you'd like to delete, pass the" +
+			" task number as displayed by the \"list\" command. " +
+			"For example\n\ntasks rm 4 9\n\nwill delete the 4th " +
+			"and 9th tasks displayed by the \"list\" command.",
 	}
 )
 
@@ -49,7 +70,13 @@ func main() {
 		Name:      "task",
 		Usage:     "task is a CLI for managing your TODOs.",
 		UsageText: "task [command]",
-		Commands:  []*cli.Command{cmdAdd, cmdDo, cmdList},
+		Commands: []*cli.Command{
+			cmdAdd,
+			cmdComplete,
+			cmdListIncomplete,
+			cmdListCompleted,
+			cmdRemove,
+		},
 	}
 	app.Run(os.Args)
 }
@@ -70,4 +97,36 @@ func getDBFilepath() (*string, error) {
 
 	dbFilepath := filepath.Join(dataDirFilepath, dbFileName)
 	return &dbFilepath, nil
+}
+
+func addTasks(ctx *cli.Context) error {
+	args := ctx.Args()
+	addedTasks := make([]*store.Task, args.Len())
+	for i := 0; i < args.Len(); i++ {
+		task := &store.Task{Description: args.Get(i)}
+		err := taskStore.AddTask(task)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		addedTasks[i] = task
+	}
+
+	fmt.Println("Added the following tasks:")
+	for _, task := range addedTasks {
+		fmt.Println(task.Description)
+	}
+	return nil
+}
+
+func listIncompleteTasks(ctx *cli.Context) error {
+	incompleteTasks, err := taskStore.GetIncompleteTasks()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	fmt.Println("You have the following incomplete tasks:")
+	for i, task := range incompleteTasks {
+		fmt.Printf("%d. %s\n", i+1, task.Description)
+	}
+	return nil
 }
