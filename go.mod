@@ -3,6 +3,7 @@ module github.com/shaurya947/gophercises-task
 go 1.19
 
 require (
+	github.com/mitchellh/go-homedir v1.1.0
 	github.com/stretchr/testify v1.8.2
 	github.com/urfave/cli/v2 v2.25.1
 	go.etcd.io/bbolt v1.3.7

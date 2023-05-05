@@ -1,8 +1,13 @@
 package main
 
 import (
+	"fmt"
+	"log"
 	"os"
+	"path/filepath"
 
+	"github.com/mitchellh/go-homedir"
+	"github.com/shaurya947/gophercises-task/store"
 	"github.com/urfave/cli/v2"
 )
 
@@ -21,7 +26,25 @@ var (
 	}
 )
 
+const (
+	dataDirName = ".tasks"
+	dbFileName  = "tasks.db"
+)
+
+var taskStore *store.TaskStore
+
 func main() {
+	dbFilepath, err := getDBFilepath()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	taskStore, err = store.NewTaskStore(*dbFilepath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer taskStore.Close()
+
 	app := &cli.App{
 		Name:      "task",
 		Usage:     "task is a CLI for managing your TODOs.",
@@ -29,4 +52,22 @@ func main() {
 		Commands:  []*cli.Command{cmdAdd, cmdDo, cmdList},
 	}
 	app.Run(os.Args)
+}
+
+func getDBFilepath() (*string, error) {
+	home, err := homedir.Dir()
+	if err != nil {
+		return nil, fmt.Errorf("Could not find user home directory")
+	}
+
+	dataDirFilepath := filepath.Join(home, dataDirName)
+	if _, err := os.Stat(dataDirFilepath); os.IsNotExist(err) {
+		if err := os.Mkdir(dataDirFilepath, 0755); err != nil {
+			return nil, fmt.Errorf(
+				"Could not create data directory")
+		}
+	}
+
+	dbFilepath := filepath.Join(dataDirFilepath, dbFileName)
+	return &dbFilepath, nil
 }

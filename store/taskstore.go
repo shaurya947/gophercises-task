@@ -20,8 +20,8 @@ type TaskStore struct {
 	nowFunc func() time.Time
 }
 
-func NewTaskStore(filename string) (*TaskStore, error) {
-	db, err := bolt.Open(filename, 0600, nil)
+func NewTaskStore(filepath string) (*TaskStore, error) {
+	db, err := bolt.Open(filepath, 0600, nil)
 	if err != nil {
 		return nil, err
 	}
