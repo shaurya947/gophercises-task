@@ -5,6 +5,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
+	"time"
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/shaurya947/gophercises-task/store"
@@ -27,6 +29,7 @@ var (
 			"command. For example\n\ntasks do 1 6 15\n\nwill mark" +
 			" as complete the 1st, 6th and 15th tasks displayed" +
 			" by the \"list\" command.",
+		Action: completeTasks,
 	}
 	cmdListIncomplete = &cli.Command{
 		Name:   "list",
@@ -34,8 +37,9 @@ var (
 		Action: listIncompleteTasks,
 	}
 	cmdListCompleted = &cli.Command{
-		Name:  "completed",
-		Usage: "List all of your completed tasks since 24h ago",
+		Name:   "completed",
+		Usage:  "List all of your completed tasks since 24h ago",
+		Action: listCompletedTasks,
 	}
 	cmdRemove = &cli.Command{
 		Name:  "rm",
@@ -44,6 +48,7 @@ var (
 			" task number as displayed by the \"list\" command. " +
 			"For example\n\ntasks rm 4 9\n\nwill delete the 4th " +
 			"and 9th tasks displayed by the \"list\" command.",
+		Action: removeTasks,
 	}
 )
 
@@ -113,7 +118,7 @@ func addTasks(ctx *cli.Context) error {
 
 	fmt.Println("Added the following tasks:")
 	for _, task := range addedTasks {
-		fmt.Println(task.Description)
+		fmt.Printf("- %s\n", task.Description)
 	}
 	return nil
 }
@@ -127,6 +132,66 @@ func listIncompleteTasks(ctx *cli.Context) error {
 	fmt.Println("You have the following incomplete tasks:")
 	for i, task := range incompleteTasks {
 		fmt.Printf("%d. %s\n", i+1, task.Description)
+	}
+	return nil
+}
+
+func listCompletedTasks(ctx *cli.Context) error {
+	fullDayAgo := time.Now().Add(-time.Hour * 24)
+	completedTasks, err := taskStore.GetCompletedTasks(fullDayAgo)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	fmt.Println("You have finished the following tasks since 24h ago:")
+	for _, task := range completedTasks {
+		fmt.Printf("- %s\n", task.Description)
+	}
+	return nil
+}
+
+func completeTasks(ctx *cli.Context) error {
+	args := ctx.Args()
+	taskNums := make([]int, args.Len())
+	for i := 0; i < args.Len(); i++ {
+		argInt, err := strconv.Atoi(args.Get(i))
+		if err != nil {
+			log.Fatalln(err)
+		}
+		taskNums[i] = argInt
+	}
+
+	completedTasks, err := taskStore.CompleteTasks(taskNums)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	fmt.Println("Marked the following tasks as complete:")
+	for _, task := range completedTasks {
+		fmt.Printf("- %s\n", task.Description)
+	}
+	return nil
+}
+
+func removeTasks(ctx *cli.Context) error {
+	args := ctx.Args()
+	taskNums := make([]int, args.Len())
+	for i := 0; i < args.Len(); i++ {
+		argInt, err := strconv.Atoi(args.Get(i))
+		if err != nil {
+			log.Fatalln(err)
+		}
+		taskNums[i] = argInt
+	}
+
+	removedTasks, err := taskStore.RemoveTasks(taskNums)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	fmt.Println("Deleted the following incomplete tasks:")
+	for _, task := range removedTasks {
+		fmt.Printf("- %s\n", task.Description)
 	}
 	return nil
 }
